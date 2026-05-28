@@ -6,6 +6,14 @@
 
 `护眼提醒` 是一个 macOS 本地护眼休息提醒工具。它会按你设置的工作时长提醒你休息，并提供全屏休息浮窗、延后、跳过和 `Esc` 快捷键。
 
+## 快速下载
+
+如果你只是想先试用，不用先打开源码页，直接下载发布版：
+
+- [EyeBreaker.zip](https://github.com/yadongz097-create/eye-breaker/releases/download/v1.0.0/EyeBreaker.zip)
+
+下载后解压，把 `护眼提醒.app` 拖到 `Applications`，然后双击打开。
+
 ## 怎么安装
 
 如果你已经下载了发布版，直接把 `护眼提醒.app` 拖到 `Applications` 即可。
@@ -73,4 +81,3 @@ dist/护眼提醒.app
 ## 版本说明
 
 这一版是本地单机工具，不做云同步，不上传你的使用数据。
-

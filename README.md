@@ -4,6 +4,14 @@
 
 ![界面预览](docs/assets/eye-breaker-preview.png)
 
+## 下载
+
+如果你不想看 GitHub 源码页，直接下载发布版即可：
+
+- [EyeBreaker.zip](https://github.com/yadongz097-create/eye-breaker/releases/download/v1.0.0/EyeBreaker.zip)
+
+下载后解压，把 `护眼提醒.app` 拖到 `Applications`，再双击打开。
+
 ## 功能
 
 - 定时提醒休息
