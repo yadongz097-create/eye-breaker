@@ -63,9 +63,15 @@ struct EyeBreakSession: Equatable {
         remainingSeconds = settings.workSeconds
     }
 
-    mutating func update(settings newSettings: EyeBreakSettings) {
+    mutating func update(settings newSettings: EyeBreakSettings, resetCurrentCycle: Bool = false) {
         settings = newSettings
-        if status == .stopped || phase == .idle {
+        if resetCurrentCycle {
+            phase = .work
+            remainingSeconds = newSettings.workSeconds
+            if status != .paused {
+                status = .running
+            }
+        } else if status == .stopped || phase == .idle {
             remainingSeconds = newSettings.workSeconds
         }
     }

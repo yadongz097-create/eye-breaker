@@ -78,3 +78,30 @@ import Testing
     #expect(session.phase == .work)
     #expect(session.remainingSeconds == 20 * 60)
 }
+
+@Test func updateSettingsWithResetRestartsCurrentCycle() {
+    var session = EyeBreakSession(settings: .init(workMinutes: 5, breakMinutes: 1))
+
+    session.start()
+    _ = session.tick(seconds: 60)
+
+    session.update(settings: .init(workMinutes: 20, breakMinutes: 3), resetCurrentCycle: true)
+
+    #expect(session.phase == .work)
+    #expect(session.status == .running)
+    #expect(session.remainingSeconds == 20 * 60)
+}
+
+@Test func updateSettingsWithResetKeepsPausedState() {
+    var session = EyeBreakSession(settings: .init(workMinutes: 5, breakMinutes: 1))
+
+    session.start()
+    _ = session.tick(seconds: 60)
+    session.pause()
+
+    session.update(settings: .init(workMinutes: 20, breakMinutes: 3), resetCurrentCycle: true)
+
+    #expect(session.phase == .work)
+    #expect(session.status == .paused)
+    #expect(session.remainingSeconds == 20 * 60)
+}

@@ -192,14 +192,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         NSApp.terminate(nil)
     }
 
-    private func applySettings(_ updatedSettings: EyeBreakSettings) {
-        let shouldAutostart = session.status == .stopped
+    private func applySettings(_ updatedSettings: EyeBreakSettings, resetCurrentCycle: Bool) {
         settings = updatedSettings
         preferencesStore.save(updatedSettings)
-        session.update(settings: updatedSettings)
-        if shouldAutostart {
-            session.start()
-        }
+        session.update(settings: updatedSettings, resetCurrentCycle: resetCurrentCycle)
         refreshPresentation()
     }
 
@@ -217,8 +213,8 @@ final class AppController: NSObject, NSApplicationDelegate {
                 launchAtLoginEnabled: launchAtLoginEnabled,
                 launchAtLoginSupported: launchAtLoginSupported
             )
-            controller.onSave = { [weak self] updatedSettings in
-                self?.applySettings(updatedSettings)
+            controller.onSave = { [weak self] updatedSettings, resetCurrentCycle in
+                self?.applySettings(updatedSettings, resetCurrentCycle: resetCurrentCycle)
             }
             controller.onLaunchAtLoginChanged = { [weak self] enabled in
                 self?.updateLaunchAtLogin(enabled: enabled)

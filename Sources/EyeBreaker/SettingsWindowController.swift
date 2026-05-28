@@ -7,7 +7,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let contentController: SettingsContentViewController
     var onClose: (() -> Void)?
 
-    var onSave: ((EyeBreakSettings) -> Void)? {
+    var onSave: ((EyeBreakSettings, Bool) -> Void)? {
         didSet {
             contentController.onSave = onSave
         }
@@ -46,19 +46,24 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     func show() {
+        contentController.shouldSaveOnClose = true
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
     func windowWillClose(_ notification: Notification) {
+        if contentController.shouldSaveOnClose && contentController.hasChanges() {
+            onSave?(contentController.currentSettings(), true)
+        }
         onClose?()
     }
 }
 
 @MainActor
 private final class SettingsContentViewController: NSViewController {
-    var onSave: ((EyeBreakSettings) -> Void)?
+    var onSave: ((EyeBreakSettings, Bool) -> Void)?
     var onLaunchAtLoginChanged: ((Bool) -> Void)?
+    var shouldSaveOnClose = true
 
     private let workField = NSTextField()
     private let breakField = NSTextField()
@@ -206,13 +211,13 @@ private final class SettingsContentViewController: NSViewController {
     }
 
     @objc private func cancelTapped() {
+        shouldSaveOnClose = false
         view.window?.close()
     }
 
     @objc private func saveTapped() {
-        let workMinutes = max(1, Int(workField.stringValue) ?? initialSettings.workMinutes)
-        let breakMinutes = max(1, Int(breakField.stringValue) ?? initialSettings.breakMinutes)
-        onSave?(EyeBreakSettings(workMinutes: workMinutes, breakMinutes: breakMinutes))
+        onSave?(currentSettings(), true)
+        shouldSaveOnClose = false
         view.window?.close()
     }
 
@@ -232,6 +237,16 @@ private final class SettingsContentViewController: NSViewController {
         launchAtLoginEnabled = enabled
         launchAtLoginSupported = supported
         applyLaunchAtLoginState()
+    }
+
+    func currentSettings() -> EyeBreakSettings {
+        let workMinutes = max(1, Int(workField.stringValue) ?? initialSettings.workMinutes)
+        let breakMinutes = max(1, Int(breakField.stringValue) ?? initialSettings.breakMinutes)
+        return EyeBreakSettings(workMinutes: workMinutes, breakMinutes: breakMinutes)
+    }
+
+    func hasChanges() -> Bool {
+        currentSettings() != initialSettings
     }
 
     private func applyLaunchAtLoginState() {
