@@ -1,8 +1,12 @@
 import AppKit
+import CoreGraphics
 import Foundation
 
 @MainActor
 final class AppController: NSObject, NSApplicationDelegate {
+    private static let idlePauseThresholdSeconds: TimeInterval = 5 * 60
+    private static let anyInputEventType = CGEventType(rawValue: UInt32.max)!
+
     private let preferencesStore = EyeBreakPreferencesStore()
     private let launchAtLoginController = LaunchAtLoginController()
     private var settings: EyeBreakSettings
@@ -11,6 +15,8 @@ final class AppController: NSObject, NSApplicationDelegate {
     private var tickTimer: Timer?
     private let overlayController = OverlayWindowController()
     private var settingsWindowController: SettingsWindowController?
+    private var workspaceObserverTokens: [NSObjectProtocol] = []
+    private var autoPausedByInactivity = false
 
     override init() {
         let loadedSettings = preferencesStore.load()
@@ -28,6 +34,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         configureStatusItem()
+        configureInactivityMonitoring()
         configureTimer()
         refreshPresentation()
         showSettingsOnLaunch()
@@ -42,6 +49,8 @@ final class AppController: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         tickTimer?.invalidate()
+        workspaceObserverTokens.forEach { NSWorkspace.shared.notificationCenter.removeObserver($0) }
+        workspaceObserverTokens.removeAll()
     }
 
     private func configureStatusItem() {
@@ -61,6 +70,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     private func handleTick() {
+        evaluateInactivityAutoPause()
         let transitions = session.tick()
         if transitions.contains(.enteredRest) {
             NSSound.beep()
@@ -70,6 +80,50 @@ final class AppController: NSObject, NSApplicationDelegate {
             overlayController.hide()
         }
         refreshPresentation()
+    }
+
+    private func configureInactivityMonitoring() {
+        let center = NSWorkspace.shared.notificationCenter
+        let names: [NSNotification.Name] = [
+            NSWorkspace.sessionDidResignActiveNotification,
+            NSWorkspace.sessionDidBecomeActiveNotification,
+            NSWorkspace.screensDidSleepNotification,
+            NSWorkspace.screensDidWakeNotification,
+        ]
+
+        workspaceObserverTokens = names.map { name in
+            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                Task { @MainActor in
+                    self?.evaluateInactivityAutoPause()
+                }
+            }
+        }
+    }
+
+    private func evaluateInactivityAutoPause() {
+        let idleSeconds = currentIdleSeconds()
+
+        if session.status == .running,
+           session.phase == .work,
+           idleSeconds >= Self.idlePauseThresholdSeconds {
+            autoPausedByInactivity = true
+            session.pause()
+            refreshPresentation()
+            return
+        }
+
+        if autoPausedByInactivity,
+           session.status == .paused,
+           session.phase == .work,
+           idleSeconds < Self.idlePauseThresholdSeconds {
+            autoPausedByInactivity = false
+            session.resume()
+            refreshPresentation()
+        }
+    }
+
+    private func currentIdleSeconds() -> TimeInterval {
+        CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: Self.anyInputEventType)
     }
 
     private func refreshPresentation() {
@@ -156,16 +210,19 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     @objc private func startTapped() {
+        autoPausedByInactivity = false
         session.start()
         refreshPresentation()
     }
 
     @objc private func pauseTapped() {
+        autoPausedByInactivity = false
         session.pause()
         refreshPresentation()
     }
 
     @objc private func resumeTapped() {
+        autoPausedByInactivity = false
         session.resume()
         refreshPresentation()
     }
@@ -179,6 +236,7 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     @objc private func resetTapped() {
+        autoPausedByInactivity = false
         session.reset()
         overlayController.hide()
         refreshPresentation()
@@ -249,12 +307,14 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     private func snoozeRestFiveMinutes() {
+        autoPausedByInactivity = false
         session.snoozeRest(bySeconds: 5 * 60)
         overlayController.update(remainingSeconds: session.remainingSeconds)
         refreshPresentation()
     }
 
     private func endRestNow() {
+        autoPausedByInactivity = false
         session.endRestNow()
         overlayController.hide()
         refreshPresentation()

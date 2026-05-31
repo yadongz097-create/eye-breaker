@@ -46,15 +46,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     func show() {
-        contentController.shouldSaveOnClose = true
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
     func windowWillClose(_ notification: Notification) {
-        if contentController.shouldSaveOnClose && contentController.hasChanges() {
-            onSave?(contentController.currentSettings(), true)
-        }
         onClose?()
     }
 }
@@ -63,7 +59,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 private final class SettingsContentViewController: NSViewController {
     var onSave: ((EyeBreakSettings, Bool) -> Void)?
     var onLaunchAtLoginChanged: ((Bool) -> Void)?
-    var shouldSaveOnClose = true
 
     private let workField = NSTextField()
     private let breakField = NSTextField()
@@ -211,13 +206,11 @@ private final class SettingsContentViewController: NSViewController {
     }
 
     @objc private func cancelTapped() {
-        shouldSaveOnClose = false
         view.window?.close()
     }
 
     @objc private func saveTapped() {
         onSave?(currentSettings(), true)
-        shouldSaveOnClose = false
         view.window?.close()
     }
 
